@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Search, MapPin, Filter, Navigation, Shield, Loader2, Building2 } from "lucide-react";
-import { fetchChurches, type Church } from "../../../services/churchAPI";
-import { getPublicImageUrls } from "../../../utils/supabase"; // import helper
+import { fetchChurches, getChurchRatingValue, type Church } from "../../../services/churchAPI";
 
 export default function ChurchSearch() {
   const [churches, setChurches] = useState<Church[]>([]);
@@ -54,7 +53,7 @@ export default function ChurchSearch() {
     }
 
     if (sortBy === 'rating') {
-      filtered = [...filtered].sort((a, b) => (b.structuralRating || 0) - (a.structuralRating || 0));
+      filtered = [...filtered].sort((a, b) => (getChurchRatingValue(b) || 0) - (getChurchRatingValue(a) || 0));
     } else if (sortBy === 'name') {
       filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortBy === 'distance' && userLocation) {
@@ -142,7 +141,7 @@ export default function ChurchSearch() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="name">Name</option>
-              <option value="rating">Safety Rating</option>
+              <option value="rating">CSP1 Score</option>
               <option value="distance" disabled={!userLocation}>Distance (Enable Location)</option>
             </select>
           </div>
@@ -175,6 +174,7 @@ export default function ChurchSearch() {
           const distance = userLocation
             ? calculateDistance(userLocation.lat, userLocation.lng, church.lat, church.lng)
             : null;
+          const ratingValue = getChurchRatingValue(church);
 
           return (
             <Link
@@ -208,12 +208,12 @@ export default function ChurchSearch() {
                   {church.architecturalStyle} • Founded {church.founded}
                 </p>
                 <p className="text-gray-700 text-sm mb-4 line-clamp-2">{church.description}</p>
-                {church.structuralRating && (
-                  <div className="flex items-center gap-2">
-                    <Shield className={`w-4 h-4 ${church.structuralRating >= 8 ? 'text-green-600' : church.structuralRating >= 6 ? 'text-yellow-600' : 'text-red-600'}`} />
-                    <span className="text-sm font-medium">Safety Rating: {church.structuralRating}/10</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Shield className={`w-4 h-4 ${ratingValue === null ? 'text-gray-400' : ratingValue >= 13 ? 'text-red-600' : ratingValue >= 5 ? 'text-yellow-600' : 'text-green-600'}`} />
+                  <span className="text-sm font-medium">
+                    CSP1 Score: {ratingValue !== null ? `${ratingValue}/20` : "Unrated"}
+                  </span>
+                </div>
               </div>
             </Link>
           );

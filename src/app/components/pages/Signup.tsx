@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { Church, Mail, Lock, User, AlertCircle, Loader2 } from "lucide-react";
+import { Church, Mail, Lock, User, AlertCircle, Loader2, Building2, Award, Link as LinkIcon, FileText } from "lucide-react";
 // Import your supabase client (or your custom API utility)
 import { supabase } from "../../../lib/supabaseClient"; 
 
@@ -15,7 +15,12 @@ export default function Signup() {
     password: "",
     confirmPassword: "",
     accountType: 'user' as 'user' | 'expert',
-    expertise: "",
+    specialization: "",
+    licenseNumber: "",
+    organization: "",
+    yearsExperience: "",
+    credentialUrl: "",
+    credentialsSummary: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,6 +34,17 @@ export default function Signup() {
     }
 
     setLoading(true);
+    const isExpertApplication = formData.accountType === "expert";
+    const expertCredentials = isExpertApplication
+      ? {
+          specialization: formData.specialization.trim(),
+          licenseNumber: formData.licenseNumber.trim(),
+          organization: formData.organization.trim(),
+          yearsExperience: formData.yearsExperience.trim(),
+          credentialUrl: formData.credentialUrl.trim(),
+          credentialsSummary: formData.credentialsSummary.trim(),
+        }
+      : null;
 
     try {
       // 1. Create the user in Supabase Auth
@@ -39,7 +55,7 @@ export default function Signup() {
           // This "metadata" stores info directly on the Auth user
           data: {
             name: formData.name,
-            role: formData.accountType,
+            role: isExpertApplication ? "user" : formData.accountType,
           }
         }
       });
@@ -56,8 +72,9 @@ export default function Signup() {
               id: authData.user.id, // Links the Auth user to the DB row
               email: formData.email,
               name: formData.name,
-              role: formData.accountType,
-              expertise: formData.accountType === 'expert' ? formData.expertise : null,
+              role: isExpertApplication ? "user" : formData.accountType,
+              is_pending_expert: true,
+              expertise: expertCredentials ? JSON.stringify(expertCredentials) : null,
               created_at: new Date(),
             },
           ]);
@@ -78,7 +95,7 @@ export default function Signup() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full">
+      <div className={`${formData.accountType === "expert" ? "max-w-2xl" : "max-w-md"} w-full`}>
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <Church className="w-16 h-16 text-blue-600" />
@@ -168,16 +185,97 @@ export default function Signup() {
             </div>
 
             {formData.accountType === 'expert' && (
-              <div className="animate-in fade-in slide-in-from-top-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Area of Expertise</label>
-                <input
-                  type="text"
-                  value={formData.expertise}
-                  onChange={(e) => setFormData({ ...formData, expertise: e.target.value })}
-                  placeholder="e.g., Structural Engineering"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  required
-                />
+              <div className="animate-in fade-in slide-in-from-top-2 space-y-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-5">
+                <div>
+                  <h2 className="font-bold text-gray-900">Expert Credentials</h2>
+                  <p className="text-sm text-gray-500">These details will be reviewed by an administrator before expert access is granted.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>
+                  <div className="relative">
+                    <Award className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.specialization}
+                      onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                      placeholder="e.g., Structural Engineering, Heritage Conservation"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">License / Certification No.</label>
+                    <input
+                      type="text"
+                      value={formData.licenseNumber}
+                      onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
+                      placeholder="PRC, PE, or certification ID"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.yearsExperience}
+                      onChange={(e) => setFormData({ ...formData, yearsExperience: e.target.value })}
+                      placeholder="e.g., 8"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Organization / Firm</label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.organization}
+                      onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                      placeholder="Company, university, agency, or independent practice"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Credential Link</label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="url"
+                      value={formData.credentialUrl}
+                      onChange={(e) => setFormData({ ...formData, credentialUrl: e.target.value })}
+                      placeholder="Portfolio, LinkedIn, license page, or document URL"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Relevant Assessment Experience</label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                    <textarea
+                      value={formData.credentialsSummary}
+                      onChange={(e) => setFormData({ ...formData, credentialsSummary: e.target.value })}
+                      placeholder="Briefly describe your inspection, structural assessment, conservation, or heritage-site experience."
+                      rows={4}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

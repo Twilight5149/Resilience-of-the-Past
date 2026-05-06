@@ -10,7 +10,9 @@ import ExpertDashboard from "./components/pages/ExpertDashboard";
 import AdminDashboard from "./components/pages/AdminDashboard";
 import ChurchManagement from "./components/pages/ChurchManage";
 import NotFound from "./components/pages/NotFound";
+import { ExpertRoute } from "./components/ExpertRoute"
 import { AdminRoute } from "./components/AdminRoute";
+import { AuthRequiredRoute } from "./components/AuthRequiredRoute";
 
 export const router = createBrowserRouter([
   {
@@ -22,12 +24,42 @@ export const router = createBrowserRouter([
       { path: "signup", Component: Signup },
       { path: "search", Component: ChurchSearch },
       { path: "church/:id", Component: ChurchDetail },
-      { path: "dashboard", Component: UserDashboard },
-      { path: "expert-dashboard", Component: ExpertDashboard },
-      { path: "church-management", Component: ChurchManagement },
-      { path: "admin-dashboard", Component: AdminDashboard },
+      {
+        path: "dashboard",
+        element: (
+          <AuthRequiredRoute>
+            <UserDashboard />
+          </AuthRequiredRoute>
+        ),
+      },
+      
+      // ✅ Wrap Expert Dashboard with the Gatekeeper
+      { 
+        path: "expert-dashboard", 
+        element: (
+          <ExpertRoute>
+            <ExpertDashboard />
+          </ExpertRoute>
+        ) 
+      },
+
+      {
+        path: "church-management",
+        element: (
+          <AdminRoute>
+            <ChurchManagement />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-dashboard",
+        element: (
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        ),
+      },
       { path: "*", Component: NotFound },
     ],
   },
-
 ]);

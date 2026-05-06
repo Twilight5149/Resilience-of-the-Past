@@ -4,59 +4,102 @@ import { supabase } from "../lib/supabaseClient";
 type AuthContextType = {
   user: any | null;
   loading: boolean;
+  refreshUser: () => Promise<any | null>;
 };
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  refreshUser: async () => null,
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-useEffect(() => {
-  // 1. Create a single function to handle profile fetching
-  const getProfile = async (userId: string) => {
-    const { data } = await supabase
+  const getProfile = async (userId: string, email?: string | null) => {
+    const { data: profileById } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
-    return data;
+
+    if (profileById || !email) return profileById;
+
+    const { data: profileByEmail } = await supabase
+      .from("profiles")
+      .select("*")
+      .ilike("email", email)
+      .maybeSingle();
+
+    return profileByEmail;
   };
 
-  // 2. Use the listener as the primary source of truth
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-    if (session?.user) {
-      const profile = await getProfile(session.user.id);
-      setUser(profile);
-    } else {
+  const refreshUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.user) {
       setUser(null);
+      return null;
     }
-    // Always stop loading after the check is done
-    setLoading(false);
+
+    const profile = await getProfile(session.user.id, session.user.email);
+    setUser(profile);
+    return profile;
+  };
+
+useEffect(() => {
+  let mounted = true;
+
+  const loadInitialSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (session?.user) {
+        const profile = await getProfile(session.user.id, session.user.email);
+        if (!mounted) return;
+        setUser(profile ?? { id: session.user.id, email: session.user.email });
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Failed to load auth session:", error);
+      if (mounted) setUser(null);
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  };
+
+  loadInitialSession();
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    window.setTimeout(async () => {
+      try {
+        if (session?.user) {
+          const profile = await getProfile(session.user.id, session.user.email);
+          if (mounted) setUser(profile ?? { id: session.user.id, email: session.user.email });
+        } else if (mounted) {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Failed to refresh auth profile:", error);
+        if (mounted) setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }, 0);
   });
 
-  // 3. Fallback: If for some reason the listener doesn't fire (rare), 
-  // check session once.
-  const checkInitialSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) setLoading(false);
+  return () => {
+    mounted = false;
+    subscription.unsubscribe();
   };
-  checkInitialSession();
-
-  return () => subscription.unsubscribe();
 }, []);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    if (data) setUser(data);
-  };
-
 return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

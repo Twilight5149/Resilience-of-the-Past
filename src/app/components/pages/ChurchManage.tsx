@@ -6,6 +6,7 @@ import {
   updateChurch,
   deleteChurch,
   uploadImage,
+  getChurchRatingValue,
   type Church
 } from "../../../services/churchAPI";
 import { getPublicImageUrl } from "../../../utils/supabase";
@@ -49,13 +50,11 @@ export default function ChurchManagementWithAPI() {
       images: Array.isArray(church.images) ? church.images : [],
       description: church.description || "",
       history: church.history || "",
-      unrated: church.unrated || false,
     }));
   } else {
     setEditingChurch(null);
     setFormData({
       images: [],
-      unrated: false,
     });
   }
   setShowForm(true);
@@ -82,9 +81,9 @@ export default function ChurchManagementWithAPI() {
       }
 
       handleCloseForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save church:", error);
-      alert("Failed to save church. Please try again.");
+      alert(error?.message || "Failed to save church. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -211,7 +210,10 @@ export default function ChurchManagementWithAPI() {
         </div>
       ) : (
         <div className="grid gap-6">
-          {churches.map(church => (
+          {churches.map(church => {
+            const ratingValue = getChurchRatingValue(church);
+
+            return (
             <div key={church.id} className="bg-white rounded-lg shadow-lg p-6">
               <div className="flex gap-6">
                 {church.images && church.images[0] && (
@@ -250,12 +252,17 @@ export default function ChurchManagementWithAPI() {
                     <div><span className="text-gray-600">Diocese:</span> <span className="ml-2 font-medium">{church.diocese || "N/A"}</span></div>
                     <div><span className="text-gray-600">Feast:</span> <span className="ml-2 font-medium">{church.feast || "N/A"}</span></div>
                     <div><span className="text-gray-600">Style:</span> <span className="ml-2 font-medium">{church.architecturalStyle}</span></div>
-                    {church.structuralRating && <div><span className="text-gray-600">Rating:</span> <span className="ml-2 font-medium">{church.structuralRating}/10</span></div>}
+                    <div>
+                      <span className="text-gray-600">CSP1 Score:</span>
+                      <span className="ml-2 font-medium">
+                        {ratingValue !== null ? `${ratingValue}/20` : "Unrated"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 
@@ -313,15 +320,12 @@ export default function ChurchManagementWithAPI() {
                   <input type="number" step="any" required value={formData.lng || ""} onChange={e => setFormData({...formData, lng: parseFloat(e.target.value)})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" disabled={submitting} />
                 </div>
 
-                {/* Structural Rating / Unrated */}
-                <div><label className="block text-sm font-medium mb-2">Structural Rating (1-10)</label>
-                  <input type="number" min="1" max="10" value={formData.structuralRating || ""} onChange={e => setFormData({...formData, structuralRating: parseInt(e.target.value)})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" disabled={submitting} />
-                </div>
-                <div className="col-span-2">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={formData.unrated || false} onChange={e => setFormData({...formData, unrated: e.target.checked})} className="w-4 h-4" disabled={submitting} />
-                    <span className="text-sm font-medium">Unrated</span>
-                  </label>
+                {/* Expert Rating */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">CSP1 Score</label>
+                  <div className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-700">
+                    {getChurchRatingValue(formData) !== null ? `${getChurchRatingValue(formData)}/20` : "Unrated"}
+                  </div>
                 </div>
 
                 {/* Description & History */}

@@ -5,7 +5,8 @@ export interface User {
   email: string;
   role: 'admin' | 'expert' | 'user';
   is_pending_expert?: boolean; 
-  expertise?: string;          
+  expertise?: string;
+  created_at?: string;          
 }
 
 export async function fetchUsers(): Promise<User[]> {

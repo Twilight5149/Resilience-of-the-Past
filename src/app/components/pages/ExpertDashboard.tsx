@@ -1,43 +1,45 @@
 import { useState, useEffect } from "react";
-import { Shield, CheckCircle, AlertCircle, Send, Loader2 } from "lucide-react";
+import { Shield, AlertCircle, Send, Loader2} from "lucide-react";
 import { fetchChurches, submitExpertRating, type Church } from "../../../services/churchAPI";
 
-interface RatingHistory {
-  id: string;
-  church_id: string;
-  churches: { name: string }; // For joined church name
-  rating: number;
-  assessment: string;
-  recommendations: string;
-  created_at: string;
-}
+const conditionLevels = [
+  { value: 1, label: "Good", detail: "No significant defects" },
+  { value: 2, label: "Fair", detail: "Minor defects observed" },
+  { value: 3, label: "Poor", detail: "Moderate deterioration" },
+  { value: 4, label: "Very Poor", detail: "Serious defects present" },
+  { value: 5, label: "Dilapidated", detail: "Severe structural concern" },
+];
+
+const priorityLevels = [
+  { value: 1, label: "Normal" },
+  { value: 2, label: "Routine" },
+  { value: 3, label: "Urgent" },
+  { value: 4, label: "Emergency" },
+];
 
 export default function ExpertDashboard() {
   const [churches, setChurches] = useState<Church[]>([]);
-  const [history, setHistory] = useState<RatingHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form State
+  // --- CSP1 Matrix Form State ---
   const [selectedChurch, setSelectedChurch] = useState("");
-  const [rating, setRating] = useState(5);
+  const [csp1Matrix, setCsp1Matrix] = useState({ conditionScore: 1, priorityScore: 1 });
   const [assessment, setAssessment] = useState("");
   const [recommendations, setRecommendations] = useState("");
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const { conditionScore, priorityScore } = csp1Matrix;
+  const finalScore = conditionScore * priorityScore;
+
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const churchData = await fetchChurches();
       setChurches(churchData);
-      
-      // Note: You might need a fetchExpertHistory() function in your API 
-      // If not yet implemented, we'll focus on the submission first
     } catch (error) {
-      console.error("Failed to load dashboard data:", error);
+      console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
     }
@@ -49,26 +51,20 @@ export default function ExpertDashboard() {
 
     try {
       setSubmitting(true);
-      
       await submitExpertRating(
         selectedChurch,
-        rating,
+        conditionScore,
+        priorityScore,
         assessment,
         recommendations
       );
 
-      // Success Garnish
-      alert("Structural assessment submitted and church status updated!");
-      
-      // Reset Form
+      alert("CSP1 Matrix Assessment Published Successfully!");
       setSelectedChurch("");
-      setRating(5);
+      setCsp1Matrix({ conditionScore: 1, priorityScore: 1 });
       setAssessment("");
       setRecommendations("");
-      
-      // Refresh church list to see updated ratings
       loadData();
-      
     } catch (error: any) {
       alert("Error: " + error.message);
     } finally {
@@ -76,122 +72,122 @@ export default function ExpertDashboard() {
     }
   };
 
-  const getRatingColor = (r: number) => {
-    if (r >= 8) return "text-green-600";
-    if (r >= 6) return "text-yellow-600";
-    return "text-red-600";
+  // --- Logic for CSP1 Visualization ---
+  const getActionLevel = (score: number) => {
+    if (score >= 13) return { label: "EMERGENCY/RED", color: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
+    if (score >= 5) return { label: "CONDITION MONITORING", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200" };
+    return { label: "PLANNED MAINTENANCE", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" };
   };
 
-  const getRatingLabel = (r: number) => {
-    if (r >= 9) return "Excellent";
-    if (r >= 8) return "Very Good";
-    if (r >= 7) return "Good";
-    if (r >= 6) return "Fair";
-    if (r >= 4) return "Needs Attention";
-    return "Critical";
-  };
+  const selectedActionLevel = getActionLevel(finalScore);
 
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Expert Dashboard</h1>
-        <p className="text-gray-600">Provide verified structural integrity assessments</p>
-      </div>
-
-      <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-8">
-        <div className="flex items-center gap-2">
-          <CheckCircle className="w-5 h-5 text-blue-600" />
-          <p className="text-sm text-blue-900">
-            <strong>Verified Expert Status:</strong> Your assessments are marked as professional 
-            audits and directly update the church safety ratings.
-          </p>
-        </div>
+        <h1 className="text-4xl font-bold">Expert Dashboard</h1>
+        <p className="text-gray-600">Building Condition Survey Protocol (CSP1) Implementation</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border border-gray-100">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-800">
-              <Shield className="w-6 h-6 text-blue-600" />
-              Submit Structural Assessment
+          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+              <Shield className="text-blue-600" /> Structural Audit Matrix
             </h2>
 
             <form onSubmit={handleSubmitRating} className="space-y-6">
+              {/* Church Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Target Church
-                </label>
+                <label className="block text-sm font-semibold mb-2">Target Church</label>
                 <select
                   value={selectedChurch}
                   onChange={(e) => setSelectedChurch(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-3 border rounded-xl"
                   required
                 >
-                  <option value="">Choose a church from the database...</option>
-                  {churches.map((church) => (
-                    <option key={church.id} value={church.id}>
-                      {church.name} — {church.city}
-                    </option>
-                  ))}
+                  <option value="">Select Church...</option>
+                  {churches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Resilience Score (1-10)
-                </label>
-                <div className="flex items-center gap-6 bg-gray-50 p-4 rounded-xl">
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={rating}
-                    onChange={(e) => setRating(Number(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                  />
-                  <div className="text-center min-w-[100px]">
-                    <div className={`text-4xl font-black ${getRatingColor(rating)}`}>
-                      {rating}
-                    </div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                      {getRatingLabel(rating)}
-                    </div>
-                  </div>
+              {/* CSP1 Matrix */}
+              <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                <table className="w-full min-w-[640px] border-collapse bg-white text-sm">
+                  <thead>
+                    <tr className="bg-slate-900 text-white">
+                      <th className="w-56 px-4 py-3 text-left font-black uppercase tracking-wider">Condition</th>
+                      {priorityLevels.map((priority) => (
+                        <th key={priority.value} className="px-3 py-3 text-center">
+                          <span className="block text-xs font-black uppercase">{priority.label}</span>
+                          <span className="text-[10px] text-slate-300">P{priority.value}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conditionLevels.map((condition) => (
+                      <tr key={condition.value} className="border-t border-gray-100">
+                        <th className="bg-gray-50 px-4 py-3 text-left align-middle">
+                          <span className="block font-bold text-gray-900">C{condition.value}: {condition.label}</span>
+                          <span className="block text-xs font-normal text-gray-500">{condition.detail}</span>
+                        </th>
+                        {priorityLevels.map((priority) => {
+                          const score = condition.value * priority.value;
+                          const actionLevel = getActionLevel(score);
+                          const isSelected = conditionScore === condition.value && priorityScore === priority.value;
+
+                          return (
+                            <td key={priority.value} className="p-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setCsp1Matrix({ conditionScore: condition.value, priorityScore: priority.value })}
+                                className={`h-16 w-full rounded-xl border-2 text-sm font-black transition-all ${actionLevel.bg} ${actionLevel.color} ${
+                                  isSelected
+                                    ? `${actionLevel.border} ring-4 ring-blue-500/20 scale-[1.02]`
+                                    : "border-transparent hover:border-gray-300"
+                                }`}
+                                aria-pressed={isSelected}
+                              >
+                                {score}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Calculated Result Area */}
+              <div className={`p-6 rounded-xl border-2 flex items-center justify-between ${selectedActionLevel.bg} ${selectedActionLevel.border}`}>
+                <div>
+                  <p className="text-sm font-bold text-gray-600">CALCULATED CSP1 SCORE</p>
+                  <p className={`text-3xl font-black ${selectedActionLevel.color}`}>{finalScore} / 20</p>
+                  <p className="text-xs font-bold text-gray-500">C{conditionScore} x P{priorityScore}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-gray-500">ACTION STATUS</p>
+                  <p className={`font-bold ${selectedActionLevel.color}`}>{selectedActionLevel.label}</p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Technical Assessment Details
-                </label>
+              {/* Technical Textareas */}
+              <div className="space-y-4">
                 <textarea
+                  placeholder="Technical Assessment (Foundation, Walls, Roof...)"
                   value={assessment}
                   onChange={(e) => setAssessment(e.target.value)}
-                  placeholder="Analyze foundation, load-bearing walls, material decay, and historical wear..."
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                  className="w-full px-4 py-3 border rounded-xl h-32"
                   required
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Preservation Recommendations
-                </label>
                 <textarea
+                  placeholder="Required Preservation Actions..."
                   value={recommendations}
                   onChange={(e) => setRecommendations(e.target.value)}
-                  placeholder="List priority repairs or maintenance required to maintain resilience..."
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                  className="w-full px-4 py-3 border rounded-xl h-32"
                   required
                 />
               </div>
@@ -199,62 +195,36 @@ export default function ExpertDashboard() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 text-white py-4 rounded-xl hover:bg-blue-700 font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-100 disabled:opacity-50"
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold flex justify-center items-center gap-2"
               >
-                {submitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-                {submitting ? "Processing Official Rating..." : "Publish Official Assessment"}
+                {submitting ? <Loader2 className="animate-spin" /> : <Send />}
+                Publish Certified Assessment
               </button>
             </form>
           </div>
         </div>
 
-        {/* Sidebar Guidelines */}
+        {/* Sidebar: The "Defense Evidence" */}
         <div className="space-y-6">
-          <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-yellow-800">
-              <AlertCircle className="w-5 h-5" />
-              Scoring Rubric
+          <div className="bg-gray-900 text-white rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <AlertCircle className="text-blue-400" /> CSP1 Matrix Logic
             </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between border-b border-yellow-200 pb-2">
-                <span className="font-bold text-green-700">9-10</span>
-                <span className="text-yellow-900">Structurally Sound</span>
+            <div className="space-y-4 text-xs">
+              <p className="text-gray-400 italic">Score = Condition × Priority</p>
+              <div className="border-l-2 border-green-500 pl-3">
+                <p className="font-bold">1 - 4: Green</p>
+                <p className="text-gray-400">Planned maintenance; building is functional.</p>
               </div>
-              <div className="flex justify-between border-b border-yellow-200 pb-2">
-                <span className="font-bold text-yellow-600">6-8</span>
-                <span className="text-yellow-900">Moderate Wear</span>
+              <div className="border-l-2 border-yellow-500 pl-3">
+                <p className="font-bold">5 - 12: Yellow</p>
+                <p className="text-gray-400">Condition monitoring; defects noted.</p>
               </div>
-              <div className="flex justify-between">
-                <span className="font-bold text-red-600">1-5</span>
-                <span className="text-yellow-900">Critical Failure Risk</span>
+              <div className="border-l-2 border-red-500 pl-3">
+                <p className="font-bold">13 - 20: Red</p>
+                <p className="text-gray-400">Immediate Action; structural safety risk.</p>
               </div>
             </div>
-          </div>
-
-          <div className="bg-gray-900 text-white rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-3">Assessment Logic</h3>
-            <ul className="space-y-3 text-sm text-gray-300">
-              <li className="flex gap-2">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-                Foundation Integrity
-              </li>
-              <li className="flex gap-2">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5" />
-                Load-bearing Resilience
-              </li>
-              <li className="flex gap-2">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5" />
-                Material Degradation
-              </li>
-              <li className="flex gap-2">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5" />
-                Environmental Impact
-              </li>
-            </ul>
           </div>
         </div>
       </div>

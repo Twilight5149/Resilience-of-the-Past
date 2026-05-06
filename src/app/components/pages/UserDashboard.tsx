@@ -1,19 +1,34 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { Plus, MessageSquare, Send, Loader2, MapPin, Calendar, ExternalLink, ArrowRight, Building2 } from "lucide-react";
-import { fetchChurches, type Church } from "../../../services/churchAPI";
+import { fetchChurches, createPost, fetchUserPosts, type Church } from "../../../services/churchAPI";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function UserDashboard() {
   const [churches, setChurches] = useState<Church[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [postContent, setPostContent] = useState("");
-  const [posts, setPosts] = useState<Array<{id: string, churchId: string, churchName: string, content: string, date: string}>>([]);
+  const [posts, setPosts] = useState<Array<{id: string, churchId: string, churchName: string, content: string, date: string, userName?: string | null}>>([]);
   const [showPostForm, setShowPostForm] = useState(false);
+  const location = useLocation();
+  const { user } = useAuth();
+
+useEffect(() => {
+    loadChurches();
+    loadPosts(); // Add this
+  }, []);
 
   useEffect(() => {
-    loadChurches();
-  }, []);
+  if (location.state?.preSelectChurchId) {
+    setSelectedChurch({
+      id: location.state.preSelectChurchId,
+      name: location.state.preSelectChurchName
+    } as Church); 
+    
+    setShowPostForm(true);
+  }
+}, [location.state]);
 
   const loadChurches = async () => {
     try {
@@ -29,34 +44,77 @@ export default function UserDashboard() {
     }
   };
 
+ const loadPosts = async () => {
+  try {
+    const data = await fetchUserPosts();
+    if (!data) return; 
+
+    const formattedPosts = data.map(p => ({
+      id: p.id, 
+      churchId: p.church_id.toString(), 
+      churchName: p.church_name,
+      content: p.content,
+      date: p.created_at,
+      userName: p.user_name
+    }));
+    setPosts(formattedPosts);
+  } catch (error) {
+    console.error('Error loading posts:', error);
+  }
+};
+
   const handleSelectChurch = (church: Church) => {
     setSelectedChurch(church);
     setShowPostForm(true);
   };
 
-  const handleSubmitPost = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedChurch || !postContent.trim()) return;
+ const handleSubmitPost = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!selectedChurch || !postContent.trim()) return;
 
-    const newPost = {
-      id: Date.now().toString(),
-      churchId: selectedChurch.id,
-      churchName: selectedChurch.name,
+  try {
+    setLoading(true);
+
+    const newPostData = {
+      church_id: selectedChurch.id, 
+      church_name: selectedChurch.name,
       content: postContent,
-      date: new Date().toISOString(),
     };
 
-    setPosts([newPost, ...posts]);
+    const savedPost = await createPost(newPostData, {
+      id: user?.id,
+      name: user?.name,
+      email: user?.email,
+    });
+
+    const postForState = {
+      id: savedPost.id,
+      churchId: savedPost.church_id.toString(),
+      churchName: savedPost.church_name,
+      content: savedPost.content,
+      date: savedPost.created_at,
+      userName: savedPost.user_name,
+    };
+
+    setPosts([postForState, ...posts]);
     setPostContent("");
     setSelectedChurch(null);
     setShowPostForm(false);
-  };
+  } catch (error: any) {
+    console.error('Database Error:', error);
+    alert(`Error: ${error.message || 'Check your RLS policies or console.'}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCancelPost = () => {
     setShowPostForm(false);
     setSelectedChurch(null);
     setPostContent("");
   };
+
+  
 
   if (loading) {
     return (
@@ -231,6 +289,11 @@ export default function UserDashboard() {
                 {posts.map((post) => (
                   <div key={post.id} className="border-l-4 border-blue-600 pl-6 py-2">
                     <h3 className="font-semibold text-lg mb-1">{post.churchName}</h3>
+                    {post.userName && (
+                      <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">
+                        Posted by {post.userName}
+                      </p>
+                    )}
                     <p className="text-sm text-gray-500 mb-3">
                       {new Date(post.date).toLocaleDateString('en-US', {
                         year: 'numeric',

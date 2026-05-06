@@ -9,8 +9,7 @@ import {
   X, 
   Navigation, MessageSquare, Camera, CheckCircle, User as UserIcon
 } from "lucide-react";
-import { fetchChurchById, type Church } from "../../../services/churchAPI";
-
+import { fetchChurchById, getLatestExpertRating, type Church } from "../../../services/churchAPI";
 
 export default function ChurchDetail() {
   const { id } = useParams();
@@ -35,8 +34,6 @@ export default function ChurchDetail() {
   useEffect(() => {
     if (church && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((position) => {
-        // Only calculate if your DB has lat/lng. 
-        // If not, this safely stays null.
         if (church.lat && church.lng) {
           const dist = calculateDistance(
             position.coords.latitude,
@@ -65,7 +62,7 @@ export default function ChurchDetail() {
 
   // Haversine Formula for Distance
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371; // Radius of the earth in km
+    const R = 6371; 
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a = 
@@ -95,6 +92,22 @@ export default function ChurchDetail() {
   const images = church.images || ["/placeholder.jpg"];
   const mapQuery = encodeURIComponent(`${church.name}, ${church.city}, ${church.province}`);
   const simpleMapUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+
+  // Dynamic Logic: Determine rating based on expert_ratings array from dashboard
+  const latestReview = getLatestExpertRating(church);
+  const latestRating = latestReview?.rating;
+  const getUploaderName = (post: any) => {
+    const candidates = [
+      post.user_name,
+      post.userName,
+      post.profiles?.name,
+      post.profile?.name,
+      post.profiles?.email,
+      post.profile?.email,
+    ];
+
+    return candidates.find((value) => value && value !== "Community Member") || "Community Member";
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -143,22 +156,26 @@ export default function ChurchDetail() {
             </div>
           </div>
 
-          {/* Rating Section */}
+          {/* Dynamic Rating Section */}
           <div className="mb-12">
-              {/* If unrated is FALSE AND we have a rating, show the score */}
-              {!church.unrated && church.structuralRating ? (
+              {typeof latestRating === "number" ? (
+                /* RATED: Shows if a review exists in the expert_ratings array */
                 <div className={`flex items-center gap-6 p-6 rounded-2xl border-2 ${
-                  church.structuralRating >= 8 ? 'bg-green-50 border-green-100 text-green-900' : 
-                  church.structuralRating >= 5 ? 'bg-yellow-50 border-yellow-100 text-yellow-900' : 'bg-red-50 border-red-100 text-red-900'
+                  latestRating >= 13 ? 'bg-red-50 border-red-100 text-red-900' : 
+                  latestRating >= 5 ? 'bg-yellow-50 border-yellow-100 text-yellow-900' : 'bg-green-50 border-green-100 text-green-900'
                 }`}>
-                  <div className="bg-white p-3 rounded-xl shadow-sm"><Shield className="w-8 h-8 text-current" /></div>
+                  <div className="bg-white p-3 rounded-xl shadow-sm">
+                    <Shield className="w-8 h-8 text-current" />
+                  </div>
                   <div>
-                    <p className="font-black text-3xl tracking-tighter">SAFETY RATING: {church.structuralRating}/10</p>
+                    <p className="font-black text-3xl tracking-tighter">
+                      CSP1 SCORE: {latestRating}/20
+                    </p>
                     <p className="text-sm font-medium opacity-70 italic">Verified Engineering Audit</p>
                   </div>
                 </div>
               ) : (
-                /* If unrated is TRUE (or no rating exists), show the "Awaiting" message */
+                /* UNRATED: Shows if the expert_ratings array is empty */
                 <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 p-6 rounded-2xl text-slate-500">
                   <HelpCircle className="w-8 h-8" />
                   <div>
@@ -183,7 +200,6 @@ export default function ChurchDetail() {
               </section>
             </div>
 
-            {/* Sidebar / Quick Info */}
             <div className="space-y-6">
               <div className="bg-gray-50 p-6 rounded-2xl">
                 <h3 className="font-bold text-gray-900 mb-4">Quick Details</h3>
@@ -199,7 +215,6 @@ export default function ChurchDetail() {
                 </dl>
               </div>
 
-              {/* Map Actions */}
               <div className="space-y-3">
                 <a 
                   href={`https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`}
@@ -214,7 +229,6 @@ export default function ChurchDetail() {
             </div>
           </div>
 
-          {/* Google Maps Embed Section */}
           <div className="mt-12 pt-8 border-t border-gray-100">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
               <MapPin className="text-red-500" /> Location Details
@@ -277,7 +291,7 @@ export default function ChurchDetail() {
       )}
 
       {/* --- EXPERT AUDIT SECTION --- */}
-      {!church.unrated && church.expert_ratings && church.expert_ratings.length > 0 && (
+      {church.expert_ratings && church.expert_ratings.length > 0 && (
         <section className="mt-12 bg-blue-50 rounded-3xl p-8 border border-blue-100 shadow-sm">
           <div className="flex items-center gap-3 mb-8">
             <Shield className="w-8 h-8 text-blue-600" />
@@ -291,8 +305,8 @@ export default function ChurchDetail() {
             {church.expert_ratings.map((rating: any) => (
               <div key={rating.id} className="grid md:grid-cols-4 gap-8 items-start">
                 <div className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center border border-blue-50">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Safety Score</span>
-                  <div className="text-5xl font-black text-blue-600">{rating.rating}<span className="text-xl text-blue-200">/10</span></div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">CSP1 Score</span>
+                  <div className="text-5xl font-black text-blue-600">{rating.rating}<span className="text-xl text-blue-200">/20</span></div>
                   <div className="mt-2 flex items-center gap-1 text-green-600 font-bold text-xs">
                     <CheckCircle className="w-3 h-3" /> Verified
                   </div>
@@ -321,12 +335,20 @@ export default function ChurchDetail() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-8 h-8 text-purple-600" />
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Community Feed</h2>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Community Stories</h2>
           </div>
-          <button className="bg-purple-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-purple-700 flex items-center gap-2 transition-all shadow-lg shadow-purple-100">
-            <Camera className="w-4 h-4" />
-            Post a Photo
-          </button>
+          
+          <Link 
+            to="/dashboard" 
+            state={{ 
+              preSelectChurchId: church.id, 
+              preSelectChurchName: church.name 
+            }}
+            className="bg-purple-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-purple-700 flex items-center gap-2 transition-all shadow-lg shadow-purple-100"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Share Your Story
+          </Link>
         </div>
 
         {!church.user_posts || church.user_posts.length === 0 ? (
@@ -336,7 +358,11 @@ export default function ChurchDetail() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {church.user_posts.map((post: any) => (
-              <div key={post.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl transition-all duration-300">
+              <Link
+                key={post.id}
+                to={`/church/${post.church_id || church.id}`}
+                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl transition-all duration-300"
+              >
                 {post.image_url && (
                   <div className="h-48 overflow-hidden">
                     <img 
@@ -352,15 +378,18 @@ export default function ChurchDetail() {
                       <UserIcon className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-black text-gray-800">{post.user_name || "Guest Visitor"}</p>
+                      <p className="text-xs font-black text-gray-800">{getUploaderName(post)}</p>
                       <p className="text-[10px] text-gray-400">{new Date(post.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-purple-600">
+                    {post.church_name || church.name}
+                  </p>
                   <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
                     {post.content}
                   </p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

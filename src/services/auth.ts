@@ -17,7 +17,8 @@ export const signUpWithEmail = async (email: string, password: string) => {
       {
         id: data.user.id, 
         email: email,
-        role: "member",
+        role: "user",
+        is_pending_expert: true,
       },
     ]);
 

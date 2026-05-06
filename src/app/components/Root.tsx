@@ -1,16 +1,30 @@
 import { Outlet, Link, useNavigate } from "react-router";
 import { useState } from "react";
-import { Church, LogOut, User, Menu, X } from "lucide-react";
+import { Church, LogOut, Menu, X, Shield, LayoutDashboard } from "lucide-react";
+import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "../../context/AuthContext";
+
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL?.trim().toLowerCase();
 
 export default function Root() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState<'user' | 'expert' | 'admin'>('user');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    navigate("/");
+  const isLoggedIn = Boolean(user);
+  const userRole = String(user?.role || "user").toLowerCase();
+  const userEmail = String(user?.email || "").trim().toLowerCase();
+  const isAdmin = Boolean(ADMIN_EMAIL) && userEmail === ADMIN_EMAIL && userRole === "admin";
+  const isExpert = userRole === "expert" || (Boolean(user?.expertise) && user?.is_pending_expert !== true);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setMobileMenuOpen(false);
+      navigate("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (
@@ -18,27 +32,42 @@ export default function Root() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center gap-2 text-blue-600 hover:text-blue-700">
+            <Link to="/" className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors">
               <Church className="w-8 h-8" />
-              <span className="text-xl font-bold">Resilience of The Past</span>
+              <span className="text-xl font-bold tracking-tight">Resilience of The Past</span>
             </Link>
 
+            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6">
-              <Link to="/" className="text-gray-700 hover:text-blue-600">Home</Link>
-              <Link to="/search" className="text-gray-700 hover:text-blue-600">Search Churches</Link>
+              <Link to="/" className="text-gray-600 hover:text-blue-600 font-medium">Home</Link>
+              <Link to="/search" className="text-gray-600 hover:text-blue-600 font-medium">Search Churches</Link>
 
               {isLoggedIn ? (
                 <>
-                  <Link to="/dashboard" className="text-gray-700 hover:text-blue-600">Dashboard</Link>
-                  {userRole === 'expert' && (
-                    <Link to="/expert-dashboard" className="text-gray-700 hover:text-blue-600">Expert Panel</Link>
+                  <Link to="/dashboard" className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 font-medium">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Link>
+                  
+                  {isExpert && (
+                    <Link to="/expert-dashboard" className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 font-medium">
+                      <Shield className="w-4 h-4" />
+                      Expert Panel
+                    </Link>
                   )}
-                  {userRole === 'admin' && (
-                    <Link to="/admin-dashboard" className="text-gray-700 hover:text-blue-600">Admin Panel</Link>
+                  
+                  {isAdmin && (
+                    <Link to="/admin-dashboard" className="flex items-center gap-1.5 text-gray-600 hover:text-blue-600 font-medium">
+                      <Shield className="w-4 h-4 text-purple-600" />
+                      Admin Panel
+                    </Link>
                   )}
+
+                  <div className="h-6 w-[1px] bg-gray-200 mx-2" />
+
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
+                    className="flex items-center gap-2 text-gray-600 hover:text-red-600 font-bold transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
                     Logout
@@ -46,52 +75,51 @@ export default function Root() {
                 </>
               ) : (
                 <>
-                  <Link to="/login" className="text-gray-700 hover:text-blue-600">Login</Link>
-                  <Link to="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                  <Link to="/login" className="text-gray-600 hover:text-blue-600 font-medium">Login</Link>
+                  <Link to="/signup" className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 font-bold shadow-md shadow-blue-200 transition-all">
                     Sign Up
                   </Link>
                 </>
               )}
             </nav>
 
+            {/* Mobile Menu Toggle */}
             <button
-              className="md:hidden"
+              className="md:hidden p-2 text-gray-600"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
 
+          {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t">
+            <div className="md:hidden py-6 border-t border-gray-100 animate-in slide-in-from-top duration-200">
               <nav className="flex flex-col gap-4">
-                <Link to="/" className="text-gray-700 hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-                <Link to="/search" className="text-gray-700 hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Search Churches</Link>
+                <Link to="/" className="text-lg font-semibold text-gray-700" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+                <Link to="/search" className="text-lg font-semibold text-gray-700" onClick={() => setMobileMenuOpen(false)}>Search Churches</Link>
 
                 {isLoggedIn ? (
                   <>
-                    <Link to="/dashboard" className="text-gray-700 hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
-                    {userRole === 'expert' && (
-                      <Link to="/expert-dashboard" className="text-gray-700 hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Expert Panel</Link>
+                    <Link to="/dashboard" className="text-lg font-semibold text-gray-700" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                    {isExpert && (
+                      <Link to="/expert-dashboard" className="text-lg font-semibold text-blue-600" onClick={() => setMobileMenuOpen(false)}>Expert Panel</Link>
                     )}
-                    {userRole === 'admin' && (
-                      <Link to="/admin-dashboard" className="text-gray-700 hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Admin Panel</Link>
+                    {isAdmin && (
+                      <Link to="/admin-dashboard" className="text-lg font-semibold text-purple-600" onClick={() => setMobileMenuOpen(false)}>Admin Panel</Link>
                     )}
                     <button
-                      onClick={() => {
-                        handleLogout();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="flex items-center gap-2 text-gray-700 hover:text-blue-600 text-left"
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 text-lg font-bold text-red-500 mt-2"
                     >
-                      <LogOut className="w-4 h-4" />
+                      <LogOut className="w-5 h-5" />
                       Logout
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link to="/login" className="text-gray-700 hover:text-blue-600" onClick={() => setMobileMenuOpen(false)}>Login</Link>
-                    <Link to="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-center" onClick={() => setMobileMenuOpen(false)}>
+                    <Link to="/login" className="text-lg font-semibold text-gray-700" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                    <Link to="/signup" className="bg-blue-600 text-white px-4 py-3 rounded-xl font-bold text-center" onClick={() => setMobileMenuOpen(false)}>
                       Sign Up
                     </Link>
                   </>
@@ -103,31 +131,41 @@ export default function Root() {
       </header>
 
       <main>
-        <Outlet context={{ isLoggedIn, setIsLoggedIn, userRole, setUserRole }} />
+        {/* Pass the auth state down to all child routes */}
+        <Outlet context={{ isLoggedIn, userRole }} />
       </main>
 
-      <footer className="bg-gray-800 text-white mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <footer className="bg-slate-900 text-white mt-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div>
-              <h3 className="text-lg font-bold mb-4">Resilience of The Past</h3>
-              <p className="text-gray-400">Preserving and sharing the rich history of churches worldwide.</p>
+              <div className="flex items-center gap-2 text-blue-400 mb-4">
+                <Church className="w-6 h-6" />
+                <span className="text-lg font-bold text-white">Resilience of The Past</span>
+              </div>
+              <p className="text-slate-400 leading-relaxed">
+                Protecting heritage through technology. We document church history and structural integrity 
+                to ensure these monuments stand for generations.
+              </p>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li><Link to="/search" className="text-gray-400 hover:text-white">Search Churches</Link></li>
-                <li><Link to="/login" className="text-gray-400 hover:text-white">Login</Link></li>
-                <li><Link to="/signup" className="text-gray-400 hover:text-white">Sign Up</Link></li>
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 mb-6">Quick Navigation</h3>
+              <ul className="space-y-3">
+                <li><Link to="/search" className="text-slate-300 hover:text-white transition-colors">Search Inventory</Link></li>
+                <li><Link to="/login" className="text-slate-300 hover:text-white transition-colors">Member Login</Link></li>
+                <li><Link to="/signup" className="text-slate-300 hover:text-white transition-colors">Expert Registration</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">About</h3>
-              <p className="text-gray-400">A platform for documenting church history, architecture, and structural integrity assessments by verified experts.</p>
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 mb-6">About the Project</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                A specialized platform for architectural documentation and safety assessments 
+                conducted by verified structural experts.
+              </p>
             </div>
           </div>
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2026 Resilience of The Past. All rights reserved.</p>
+          <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-500 text-sm">
+            <p>&copy; 2026 Resilience of The Past. Built with Precision.</p>
           </div>
         </div>
       </footer>

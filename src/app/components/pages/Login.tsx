@@ -1,23 +1,19 @@
 import { useState } from "react";
-import { useNavigate, useOutletContext, Link } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { Church, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "../../../lib/supabaseClient"; // Ensure this path is correct
-
-interface ContextType {
-  setIsLoggedIn: (value: boolean) => void;
-  setUserRole: (role: 'user' | 'expert' | 'admin') => void;
-}
+import { useAuth } from "../../../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setIsLoggedIn, setUserRole } = useOutletContext<ContextType>();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accountType, setAccountType] = useState<'user' | 'expert' | 'admin'>('user');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const PROTECTED_ADMIN_EMAIL = "ocadorylegerome@gmail.com";
+  const PROTECTED_ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL?.trim().toLowerCase();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +31,7 @@ export default function Login() {
 
       // 2. Admin Restriction Logic
       // If the email matches your specific admin email, but they didn't select 'admin' role
-      if (email.toLowerCase() === PROTECTED_ADMIN_EMAIL.toLowerCase()) {
+      if (PROTECTED_ADMIN_EMAIL && email.toLowerCase() === PROTECTED_ADMIN_EMAIL) {
         if (accountType !== 'admin') {
           await supabase.auth.signOut(); // Log them out immediately
           setError("This account is restricted to Administrator access only.");
@@ -46,22 +42,52 @@ export default function Login() {
 
       // 3. Optional: Verify role matches what's in your DB 'profiles' table
       // This prevents a regular user from simply selecting 'admin' in the dropdown
-      const { data: profile } = await supabase
+      const { data: profileById } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role,email,expertise,is_pending_expert')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
 
-      if (profile && profile.role !== accountType) {
+      const { data: profileByEmail } = profileById
+        ? { data: null }
+        : await supabase
+            .from('profiles')
+            .select('role,email,expertise,is_pending_expert')
+            .ilike('email', data.user.email || email)
+            .maybeSingle();
+
+      const profile = profileById ?? profileByEmail;
+
+      const profileRole = String(profile?.role || "").toLowerCase();
+      const profileEmail = String(profile?.email || data.user.email || "").toLowerCase();
+      const isAdminProfile = Boolean(PROTECTED_ADMIN_EMAIL) && profileEmail === PROTECTED_ADMIN_EMAIL && profileRole === "admin";
+      const isExpertProfile =
+        profileRole === "expert" ||
+        Boolean(profile?.expertise) ||
+        profile?.is_pending_expert === true;
+
+      if (accountType === "admin" && !isAdminProfile) {
         await supabase.auth.signOut();
-        setError(`Access denied. Your account is registered as ${profile.role}.`);
+        setError("Access denied. This account is not authorized for administrator access.");
         setLoading(false);
         return;
       }
 
-      // 4. If all checks pass, update local context state
-      setIsLoggedIn(true);
-      setUserRole(accountType);
+      if (accountType === "expert" && !isExpertProfile) {
+        await supabase.auth.signOut();
+        setError("Access denied. This account is not registered for expert access.");
+        setLoading(false);
+        return;
+      }
+
+      if (accountType === "user" && profileRole === "admin") {
+        await supabase.auth.signOut();
+        setError("This account is restricted to Administrator access only.");
+        setLoading(false);
+        return;
+      }
+
+      await refreshUser();
 
       // 5. Navigate
       if (accountType === 'expert') {

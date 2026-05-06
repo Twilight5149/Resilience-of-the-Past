@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Search, Shield, MapPin, Users, BookOpen } from "lucide-react";
-import { fetchChurches, Church } from "../../../services/churchAPI";
-import { getPublicImageUrl } from "../../../utils/supabase";
+import { Search, Shield, MapPin, Users, BookOpen, Calculator, ExternalLink } from "lucide-react";
+import { fetchChurches, getChurchRatingValue, Church } from "../../../services/churchAPI";
 
 export default function Home() {
   const [churches, setChurches] = useState<Church[]>([]);
   const [loading, setLoading] = useState(true);
-  // State to track which panel in the film strip is "active"
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -20,7 +18,6 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Timer for the film-strip highlight effect
   useEffect(() => {
     if (churches.length === 0) return;
     const timer = setInterval(() => {
@@ -37,15 +34,12 @@ export default function Home() {
     );
   }
 
-  // Grab the first 4 church images for the film strip
   const filmStrip = churches.slice(0, 4);
 
   return (
     <div>
-      {/* Hero Section with Film Strip Background */}
+      {/* Hero Section */}
       <section className="relative bg-blue-900 text-white py-20 overflow-hidden min-h-[500px] flex items-center">
-        
-        {/* The Film Strip Layer */}
         <div className="absolute inset-0 flex w-full h-full">
           {filmStrip.map((church, index) => (
             <div 
@@ -55,17 +49,14 @@ export default function Home() {
                 backgroundImage: `url(${church.images[0]})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                // Dims inactive images and highlights the active one
                 filter: activeIndex === index ? 'brightness(0.7)' : 'brightness(0.3)'
               }}
             >
-              {/* Overlay tint to ensure text contrast */}
               <div className="absolute inset-0 bg-blue-900/30" />
             </div>
           ))}
         </div>
 
-        {/* Content Overlay */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-lg">
             Resilience of The Past
@@ -103,7 +94,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Rich Documentation</h3>
               <p className="text-gray-600">
-                Access comprehensive historical information, architectural details, and community stories about churches worldwide.
+                Access comprehensive historical information, architectural details, and community stories.
               </p>
             </div>
 
@@ -113,7 +104,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Expert Verification</h3>
               <p className="text-gray-600">
-                Verified structural engineers provide safety ratings and professional assessments for building integrity.
+                Verified structural engineers provide safety ratings and professional assessments.
               </p>
             </div>
 
@@ -123,7 +114,7 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Location-Based Search</h3>
               <p className="text-gray-600">
-                Find churches near you with integrated maps, directions, and distance calculations.
+                Find churches near you with integrated maps and distance calculations.
               </p>
             </div>
           </div>
@@ -142,6 +133,9 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {churches.slice(0, 3).map((church) => {
+                  const ratingValue = getChurchRatingValue(church);
+                  const hasRating = ratingValue !== null;
+
                   return (
                     <Link
                       key={church.id}
@@ -170,16 +164,20 @@ export default function Home() {
                         <div className="flex items-center gap-2">
                           <Shield
                             className={`w-4 h-4 ${
-                              church.structuralRating ? "text-green-600" : "text-gray-400"
+                              ratingValue === null
+                                ? "text-gray-400"
+                                : ratingValue >= 13
+                                  ? "text-red-600"
+                                  : ratingValue >= 5
+                                    ? "text-yellow-600"
+                                    : "text-green-600"
                             }`}
                           />
                           <span className="text-sm font-medium">
-                            Safety Rating:{" "}
-                            {church.structuralRating
-                              ? `${church.structuralRating}/10`
-                              : church.unrated
-                              ? "Unrated"
-                              : "N/A"}
+                            CSP1 Score:{" "}
+                            {hasRating
+                              ? `${ratingValue}/20`
+                              : "Unrated"}
                           </span>
                         </div>
                       </div>
@@ -190,12 +188,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Contribute Section */}
+      {/* Contribute & How It Works Sections */}
       <section className="py-16 bg-blue-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-4">Contribute to Preservation</h2>
           <p className="text-xl mb-8 text-blue-100">
-            Share your knowledge, photos, and stories to help preserve church history for future generations.
+            Share your knowledge, photos, and stories to help preserve church history.
           </p>
           <Link
             to="/signup"
@@ -206,7 +204,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How It Works */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center mb-12">How It Works</h2>
@@ -217,31 +214,77 @@ export default function Home() {
                   {step}
                 </div>
                 {step === 1 && (
-                  <>
-                    <h3 className="font-semibold mb-2">Create Account</h3>
-                    <p className="text-gray-600 text-sm">Sign up as a user, expert, or admin</p>
-                  </>
+                  <><h3 className="font-semibold mb-2">Create Account</h3><p className="text-gray-600 text-sm">Sign up as a user, expert, or admin</p></>
                 )}
                 {step === 2 && (
-                  <>
-                    <h3 className="font-semibold mb-2">Search & Explore</h3>
-                    <p className="text-gray-600 text-sm">Find churches near you or browse globally</p>
-                  </>
+                  <><h3 className="font-semibold mb-2">Search & Explore</h3><p className="text-gray-600 text-sm">Find churches near you or browse globally</p></>
                 )}
                 {step === 3 && (
-                  <>
-                    <h3 className="font-semibold mb-2">Contribute</h3>
-                    <p className="text-gray-600 text-sm">Share information, photos, and stories</p>
-                  </>
+                  <><h3 className="font-semibold mb-2">Contribute</h3><p className="text-gray-600 text-sm">Share information, photos, and stories</p></>
                 )}
                 {step === 4 && (
-                  <>
-                    <h3 className="font-semibold mb-2">Verify</h3>
-                    <p className="text-gray-600 text-sm">Experts provide structural assessments</p>
-                  </>
+                  <><h3 className="font-semibold mb-2">Verify</h3><p className="text-gray-600 text-sm">Experts provide structural assessments</p></>
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+            <div className="lg:col-span-2">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                  <Calculator className="w-6 h-6 text-blue-300" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-wider text-blue-300">Research Basis</p>
+                  <h2 className="text-3xl font-bold">CSP1 Structural Rating</h2>
+                </div>
+              </div>
+
+              <p className="text-slate-300 leading-relaxed text-lg mb-6">
+                Our structural score follows the Condition Survey Protocol 1 matrix developed by Adi Ifran Che-Ani,
+                Azimin Samsul Mohd Tazilan, and Kamarul Afizi Kosman of Universiti Kebangsaan Malaysia. The method
+                multiplies a building element's condition rating by its repair priority, producing a 1-20 score that
+                separates planned maintenance, monitoring needs, and urgent structural attention.
+              </p>
+
+              <p className="text-slate-300 leading-relaxed text-lg">
+                We use CSP1 because heritage churches need a consistent first-line visual inspection method: it turns
+                expert observations into comparable scores, highlights defects that need serious attention, and keeps
+                the result understandable for administrators, communities, and preservation teams.
+              </p>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                  <span className="text-slate-400">Formula</span>
+                  <span className="font-bold text-white">Condition x Priority</span>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3">
+                  <span className="text-slate-400">Scale</span>
+                  <span className="font-bold text-white">1-20</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-400">Source</span>
+                  <span className="font-bold text-white text-right">Structural Survey, 2011</span>
+                </div>
+              </div>
+
+              <a
+                href="https://doi.org/10.1108/02630801111118395"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-blue-300 hover:text-blue-200 font-bold text-sm"
+              >
+                Che-Ani, Tazilan, and Kosman
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </div>
       </section>
