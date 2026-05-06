@@ -165,7 +165,13 @@ export default function Root() {
             </div>
           </div>
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-500 text-sm">
-            <p>&copy; 2026 Resilience of The Past. Built with Precision.</p>
+            <p>2026 Resilience of The Past. Built with Precision.
+              Bohol Island State University Main Campus
+              College of Engineering, Architecture and Industrial Design
+              Computer Engineering Department
+              Project in Database Management Systems
+              Developed by Ryle Gerome Ocado
+              Submitted to Engr. James Kenneth Almerol</p>
           </div>
         </div>
       </footer>
