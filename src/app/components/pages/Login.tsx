@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { Church, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
+import { Church, Mail, Lock, User, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "../../../lib/supabaseClient"; // Ensure this path is correct
 import { useAuth } from "../../../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accountType, setAccountType] = useState<'user' | 'expert' | 'admin'>('user');
@@ -14,6 +15,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const PROTECTED_ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL?.trim().toLowerCase();
+
+  const normalize = (value: string | null | undefined) => value?.trim().toLowerCase() || "";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +26,7 @@ export default function Login() {
     try {
       // 1. Supabase Auth: Verifies if Email and Password exist/match
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email,
+        email: email.trim(),
         password: password,
       });
 
@@ -31,7 +34,7 @@ export default function Login() {
 
       // 2. Admin Restriction Logic
       // If the email matches your specific admin email, but they didn't select 'admin' role
-      if (PROTECTED_ADMIN_EMAIL && email.toLowerCase() === PROTECTED_ADMIN_EMAIL) {
+      if (PROTECTED_ADMIN_EMAIL && normalize(email) === PROTECTED_ADMIN_EMAIL) {
         if (accountType !== 'admin') {
           await supabase.auth.signOut(); // Log them out immediately
           setError("This account is restricted to Administrator access only.");
@@ -44,7 +47,7 @@ export default function Login() {
       // This prevents a regular user from simply selecting 'admin' in the dropdown
       const { data: profileById } = await supabase
         .from('profiles')
-        .select('role,email,expertise,is_pending_expert')
+        .select('role,email,name,expertise,is_pending_expert')
         .eq('id', data.user.id)
         .maybeSingle();
 
@@ -52,19 +55,37 @@ export default function Login() {
         ? { data: null }
         : await supabase
             .from('profiles')
-            .select('role,email,expertise,is_pending_expert')
-            .ilike('email', data.user.email || email)
+            .select('role,email,name,expertise,is_pending_expert')
+            .ilike('email', data.user.email || email.trim())
             .maybeSingle();
 
       const profile = profileById ?? profileByEmail;
 
+      if (!profile) {
+        await supabase.auth.signOut();
+        setError("Access denied. Your username and email do not match a registered account.");
+        setLoading(false);
+        return;
+      }
+
+      const submittedUsername = normalize(username);
+      const submittedEmail = normalize(email);
+      const authEmail = normalize(data.user.email);
+      const profileUsername = normalize(profile.name);
+      const profileEmail = normalize(profile.email);
+
+      if (!profileUsername || !profileEmail || profileUsername !== submittedUsername || profileEmail !== submittedEmail || authEmail !== submittedEmail) {
+        await supabase.auth.signOut();
+        setError("Access denied. Username, email, and password must match the same registered account.");
+        setLoading(false);
+        return;
+      }
+
       const profileRole = String(profile?.role || "").toLowerCase();
-      const profileEmail = String(profile?.email || data.user.email || "").toLowerCase();
       const isAdminProfile = Boolean(PROTECTED_ADMIN_EMAIL) && profileEmail === PROTECTED_ADMIN_EMAIL && profileRole === "admin";
       const isExpertProfile =
-        profileRole === "expert" ||
-        Boolean(profile?.expertise) ||
-        profile?.is_pending_expert === true;
+        profileRole === "expert" &&
+        profile?.is_pending_expert !== true;
 
       if (accountType === "admin" && !isAdminProfile) {
         await supabase.auth.signOut();
@@ -140,6 +161,24 @@ export default function Login() {
                 <option value="expert">Verified Expert</option>
                 <option value="admin">Administrator</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  disabled={loading}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  required
+                />
+              </div>
             </div>
 
             <div>

@@ -23,6 +23,8 @@ export default function Signup() {
     credentialsSummary: "",
   });
 
+  const normalize = (value: string) => value.trim().toLowerCase();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -30,6 +32,14 @@ export default function Signup() {
     // Basic Validation
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    const normalizedName = normalize(formData.name);
+    const normalizedEmail = normalize(formData.email);
+
+    if (!normalizedName || !normalizedEmail) {
+      setError("Username and email are required.");
       return;
     }
 
@@ -47,14 +57,46 @@ export default function Signup() {
       : null;
 
     try {
+      const [
+        { data: existingEmailProfiles, error: existingEmailError },
+        { data: existingNameProfiles, error: existingNameError },
+      ] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('name,email')
+          .ilike('email', normalizedEmail),
+        supabase
+          .from('profiles')
+          .select('name,email')
+          .ilike('name', formData.name.trim()),
+      ]);
+
+      if (existingEmailError) throw existingEmailError;
+      if (existingNameError) throw existingNameError;
+
+      const existingEmailProfile = existingEmailProfiles?.find(
+        (profile) => normalize(profile.email || "") === normalizedEmail
+      );
+      const existingNameProfile = existingNameProfiles?.find(
+        (profile) => normalize(profile.name || "") === normalizedName
+      );
+
+      if (existingEmailProfile) {
+        throw new Error("This email is already registered to an account. Please sign in with the matching username, email, and password.");
+      }
+
+      if (existingNameProfile) {
+        throw new Error("This username is already registered. Please use the username and email for that account, or choose a different username.");
+      }
+
       // 1. Create the user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: normalizedEmail,
         password: formData.password,
         options: {
           // This "metadata" stores info directly on the Auth user
           data: {
-            name: formData.name,
+            name: formData.name.trim(),
             role: isExpertApplication ? "user" : formData.accountType,
           }
         }
@@ -70,10 +112,10 @@ export default function Signup() {
           .insert([
             {
               id: authData.user.id, // Links the Auth user to the DB row
-              email: formData.email,
-              name: formData.name,
+              email: normalizedEmail,
+              name: formData.name.trim(),
               role: isExpertApplication ? "user" : formData.accountType,
-              is_pending_expert: true,
+              is_pending_expert: isExpertApplication,
               expertise: expertCredentials ? JSON.stringify(expertCredentials) : null,
               created_at: new Date(),
             },
