@@ -4,6 +4,8 @@ import { Church, Mail, Lock, User, AlertCircle, Loader2, CheckCircle2 } from "lu
 import { supabase } from "../../../lib/supabaseClient"; // Ensure this path is correct
 import { useAuth } from "../../../context/AuthContext";
 
+const DEFAULT_PRODUCTION_URL = "https://resilience-of-the-past.vercel.app";
+
 export default function Login() {
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
@@ -21,6 +23,15 @@ export default function Login() {
   const PROTECTED_ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL?.trim().toLowerCase();
 
   const normalize = (value: string | null | undefined) => value?.trim().toLowerCase() || "";
+
+  const getPasswordResetRedirectUrl = () => {
+    const configuredUrl = import.meta.env.VITE_SITE_URL?.trim().replace(/\/$/, "");
+    const fallbackUrl = configuredUrl || DEFAULT_PRODUCTION_URL;
+    const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    const appOrigin = isLocalHost ? fallbackUrl : window.location.origin;
+
+    return `${appOrigin}/reset-password`;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,7 +192,7 @@ export default function Login() {
     setRecoveryLoading("password");
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: getPasswordResetRedirectUrl(),
       });
 
       if (resetError) throw resetError;
