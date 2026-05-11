@@ -34,6 +34,8 @@ const mockSupabase = {
     getUser: async () => ({ data: { user: null }, error: null }),
     signInWithPassword: async () => ({ data: null, error: notConfiguredError }),
     signUp: async () => ({ data: null, error: notConfiguredError }),
+    resetPasswordForEmail: async () => ({ data: null, error: notConfiguredError }),
+    updateUser: async () => ({ data: null, error: notConfiguredError }),
     signOut: async () => ({ error: null }),
     onAuthStateChange: () => ({
       data: {

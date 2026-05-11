@@ -3,6 +3,7 @@ import Root from "./components/Root";
 import Home from "./components/pages/Home";
 import Login from "./components/pages/Login";
 import Signup from "./components/pages/Signup";
+import ResetPassword from "./components/pages/ResetPassword";
 import ChurchSearch from "./components/pages/ChurchSearch";
 import ChurchDetail from "./components/pages/ChurchDetail";
 import UserDashboard from "./components/pages/UserDashboard";
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { index: true, Component: Home },
       { path: "login", Component: Login },
       { path: "signup", Component: Signup },
+      { path: "reset-password", Component: ResetPassword },
       { path: "search", Component: ChurchSearch },
       { path: "church/:id", Component: ChurchDetail },
       {
